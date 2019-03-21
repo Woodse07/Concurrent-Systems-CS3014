@@ -34,6 +34,7 @@
 #include <omp.h>
 #include <math.h>
 #include <stdint.h>
+#include <x86intrin.h>
 
 /* the following two definitions of DEBUGGING control whether or not
    debugging information is written out. To put the program into
@@ -245,6 +246,8 @@ void multichannel_conv(int16_t *** image, int16_t **** kernels,
     for ( w = 0; w < width; w++ ) {
       for ( h = 0; h < height; h++ ) {
         double sum = 0.0;
+
+
         for ( c = 0; c < nchannels; c++ ) {
           for ( x = 0; x < kernel_order; x++) {
             for ( y = 0; y < kernel_order; y++ ) {
@@ -252,6 +255,8 @@ void multichannel_conv(int16_t *** image, int16_t **** kernels,
             }
           }
           output[m][w][h] = (float) sum;
+
+
         }
       }
     }
@@ -263,11 +268,50 @@ void team_conv(int16_t *** image, int16_t **** kernels, float *** output,
                int width, int height, int nchannels, int nkernels,
                int kernel_order)
 {
-  // this call here is just dummy code
-  // insert your own code instead
-  multichannel_conv(image, kernels, output, width,
-                    height, nchannels, nkernels, kernel_order);
+  int h, w, x, y, c, m;
+  int print = 0;
+  __m128 sum;
+  __m128 a, b, ab;
+  for ( m = 0; m < nkernels; m++ ) {
+    for ( w = 0; w < width; w++ ) {
+      for ( h = 0; h < height; h++ ) {
+        sum = _mm_set1_ps(0.0);
+
+
+        for ( c = 0; c < nchannels; c+=4 ) {
+          for ( x = 0; x < kernel_order; x++) {
+            for ( y = 0; y < kernel_order; y++) {
+	      a = _mm_setr_ps((double)image[w+x][h+y][c], 
+			      (double)image[w+x][h+y][c+1],
+                              (double)image[w+x][h+y][c+2],
+                              (double)image[w+x][h+y][c+3]);
+		
+	      b = _mm_setr_ps((double)kernels[m][c][x][y], 
+			      (double)kernels[m][c+1][x][y],
+                              (double)kernels[m][c+2][x][y],
+                              (double)kernels[m][c+3][x][y]);
+
+	      ab = _mm_mul_ps(a, b);
+
+	      sum = _mm_add_ps(sum, ab);
+            }
+          }
+        }	
+	  float temp[4] = {0.0, 0.0, 0.0, 0.0};
+	  _mm_store_ps(temp, sum);
+	  float count = 0.0;
+	  for(int i = 0; i < 4; i++){
+	  	count += temp[i];
+ 	  }
+
+	  output[m][w][h] = count;
+
+
+      }
+    }
+  }
 }
+
 
 int main(int argc, char ** argv)
 {
@@ -335,6 +379,5 @@ int main(int argc, char ** argv)
   /* now check that the team's multichannel convolution routine
      gives the same answer as the known working version */
   check_result(output, control_output, nkernels, width, height);
-
   return 0;
 }
