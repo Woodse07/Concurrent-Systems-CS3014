@@ -35,6 +35,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <x86intrin.h>
+#include <omp.h>
 
 /* the following two definitions of DEBUGGING control whether or not
    debugging information is written out. To put the program into
@@ -269,34 +270,53 @@ void team_conv(int16_t *** image, int16_t **** kernels, float *** output,
                int kernel_order)
 {
   int h, w, x, y, c, m;
-  __m128 a, b, ab, sum;
-  for ( m = 0; m < nkernels; m+=4 ) {
-    for ( w = 0; w < width; w++ ) {
-      for ( h = 0; h < height; h++ ) {
-        sum = _mm_set1_ps(0.0);
-        for ( c = 0; c < nchannels; c++ ) {
-          for ( x = 0; x < kernel_order; x++) {
-            for ( y = 0; y < kernel_order; y++ ) {
-              //sum += (double) image[w+x][h+y][c] * (double) kernels[m][c][x][y];
-	      a = _mm_set1_ps((float)image[w+x][h+y][c]);
-	      b = _mm_setr_ps((float)kernels[m][c][x][y], 
-			      (float)kernels[m+1][c][x][y],
-                              (float)kernels[m+2][c][x][y],
-                              (float)kernels[m+3][c][x][y]); 
-	      ab = _mm_mul_ps(a, b);
-	      sum = _mm_add_ps(sum, ab);
-            }
-          }
-        }
-	  float temp[4] = {0.0, 0.0, 0.0, 0.0};
-	  _mm_store_ps(temp, sum);
-	  output[m][w][h] = temp[0];
-	  output[m+1][w][h] = temp[1];
-	  output[m+2][w][h] = temp[2];
-	  output[m+3][w][h] = temp[3];
-      }
-    }
-  }
+  __m128d sum1, sum2, a, b1, b2, ab1, ab2;
+  	  #pragma omp parallel for collapse(3) if (nkernels > 500)
+	  for ( m = 0; m < nkernels; m+=2 ) {
+	  	//#pragma omp parallel for if (width > 250)
+	    for ( w = 0; w < width; w++ ) {
+	      //#pragma omp parallel for if (height > 250)
+	      for ( h = 0; h < height; h++ ) {
+			sum1 = _mm_set1_pd(0.0);
+			sum2 = _mm_set1_pd(0.0);
+			for ( c = 0; c < nchannels; c+=2 ) {
+			  for ( x = 0; x < kernel_order; x++) {
+				for ( y = 0; y < kernel_order; y++) {
+				  a = _mm_setr_pd((double)image[w+x][h+y][c], 
+						  (double)image[w+x][h+y][c+1]);
+
+				  b1 = _mm_setr_pd((double)kernels[m][c][x][y], 
+									(double)kernels[m][c+1][x][y]);
+				  ab1 = _mm_mul_pd(a, b1);
+				  sum1 = _mm_add_pd(sum1, ab1);
+
+				  b2 = _mm_setr_pd((double)kernels[m+1][c][x][y], 
+					 				(double)kernels[m+1][c+1][x][y]);
+				  ab2 = _mm_mul_pd(a, b2);
+				  sum2 = _mm_add_pd(sum2, ab2);
+				}
+			  }
+			}	
+		  double temp[2] = {0.0, 0.0};
+		  _mm_store_pd(temp, sum1);
+		  double count = temp[0] + temp[1];
+		  //printf("Count: %f\n", count);
+		  output[m][w][h] = count;
+
+		  _mm_store_pd(temp, sum2);
+		  count = temp[0] + temp[1];
+		  //printf("Count: %f\n", count);
+		  output[m+1][w][h] = count;	
+
+		  //double temp2[2] = {0.0, 0.0};
+		  //_mm_hadd_pd(sum, sum);
+		  //_mm_store_pd(temp2, sum);
+		  //output[m][w][h] = temp2[0];
+		  //printf("Temp[0]: %f\n", temp2[0]);
+		
+	      }
+	    }
+	  }
 }
 
 
