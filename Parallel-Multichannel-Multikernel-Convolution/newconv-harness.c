@@ -269,52 +269,54 @@ void team_conv(int16_t *** image, int16_t **** kernels, float *** output,
                int width, int height, int nchannels, int nkernels,
                int kernel_order)
 {
-  int h, w, x, y, c, m, i;
-  double temp[2] = {0.0, 0.0};
-  double count = 0.0;
-  int k = 2;
+  int h, w, x, y, c, m;
   __m128d sum1, sum2, a, b1, b2, ab1, ab2;
-  __m128d sums[k]; 
-  __m128d abs[k];
-  __m128d bs[k];
-
-  for(i = 0; i < k; i++) {
-    sums[i] = _mm_set1_pd(0.0);
-  }
-  //#pragma omp parallel for collapse(3) //shared(nkernels,width,height,nchannels,kernel_order) collapse(3)
-  for(m = 0; m < nkernels; m+=k) {
+  #pragma omp parallel for private(w, h, m, c, x, y, sum1, sum2, a, b1, b2, ab1, ab2) shared(output, image, kernels) collapse(3) if (nkernels > 500)
+	for ( m = 0; m < nkernels; m+=2 ) {
+	  //#pragma omp parallel for if (width > 250)
 	  for ( w = 0; w < width; w++ ) {
+	    //#pragma omp parallel for if (height > 250)
 	    for ( h = 0; h < height; h++ ) {
-	      for ( c = 0; c < nchannels; c+=2 ) {
-	        for ( x = 0; x < kernel_order; x++) {
-		        for ( y = 0; y < kernel_order; y++) {
-		         a = _mm_setr_pd((double)image[w+x][h+y][c], 
-				                      (double)image[w+x][h+y][c+1]);
-             for (i = 0; i < k; i++){
-               bs[i] = _mm_setr_pd((double)kernels[m+i][c][x][y], 
-  		  				                    (double)kernels[m+i][c+1][x][y]);
-               abs[i] = _mm_mul_pd(a, bs[i]);
-               sums[i] = _mm_add_pd(sums[i], abs[i]);
-             }
-           }
-  	     }
-	     }
-       for(i = 0; i < k; i++) {
-         _mm_store_pd(temp, sums[i]);
-	       count = temp[0] + temp[1];
-	       output[m+i][w][h] = count;
-          sums[i] = _mm_set1_pd(0.0);
-        }
-	    }
-    }
-  }
+			  sum1 = _mm_set1_pd(0.0);
+			  sum2 = _mm_set1_pd(0.0);
+        #pragma omp parallel for collapse(3) if (nchannels > 500)
+		  	for ( c = 0; c < nchannels; c+=2 ) {
+			    for ( x = 0; x < kernel_order; x++) {
+				    for ( y = 0; y < kernel_order; y++) {
+				      a = _mm_setr_pd((double)image[w+x][h+y][c], 
+						                  (double)image[w+x][h+y][c+1]);
+
+	  			    b1 = _mm_setr_pd((double)kernels[m][c][x][y], 
+									             (double)kernels[m][c+1][x][y]);
+              
+				      ab1 = _mm_mul_pd(a, b1);
+				      sum1 = _mm_add_pd(sum1, ab1);
+
+				      b2 = _mm_setr_pd((double)kernels[m+1][c][x][y], 
+					 				             (double)kernels[m+1][c+1][x][y]);
+				      ab2 = _mm_mul_pd(a, b2);
+				      sum2 = _mm_add_pd(sum2, ab2);
+				    }
+			    }
+			  }	
+		    double temp[2] = {0.0, 0.0};
+		    _mm_store_pd(temp, sum1);
+		    double count = temp[0] + temp[1];
+		    output[m][w][h] = count;
+
+		    _mm_store_pd(temp, sum2);
+		    count = temp[0] + temp[1];
+		    output[m+1][w][h] = count;	
+      }
+	  }
+	}
 }
 
 
 int main(int argc, char ** argv)
 {
   //float image[W][H][C];
-  //float kernels[M][C][K][K];
+  //float kernels[M][C][K][K];check_result
   //float output[M][W][H];
   
   int16_t *** image, **** kernels;
@@ -356,8 +358,14 @@ int main(int argc, char ** argv)
   //DEBUGGING(write_out(A, a_dim1, a_dim2));
 
   /* use a simple multichannel convolution routine to produce control result */
+  gettimeofday(&start_time, NULL);
   multichannel_conv(image, kernels, control_output, width,
                     height, nchannels, nkernels, kernel_order);
+  gettimeofday(&stop_time, NULL);
+  mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
+    (stop_time.tv_usec - start_time.tv_usec);
+  printf("Slow conv time: %lld microseconds\n", mul_time);
+
 
   /* record starting time of team's code*/
   gettimeofday(&start_time, NULL);
@@ -371,6 +379,8 @@ int main(int argc, char ** argv)
   mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
     (stop_time.tv_usec - start_time.tv_usec);
   printf("Team conv time: %lld microseconds\n", mul_time);
+  //relative_speed = (double)control_time / (double)mul_time;
+  //printf("Speed up: %lld", relative_speed);
 
   DEBUGGING(write_out(output, nkernels, width, height));
 
