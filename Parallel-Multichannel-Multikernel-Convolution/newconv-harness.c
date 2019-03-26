@@ -243,6 +243,12 @@ void multichannel_conv(int16_t *** image, int16_t **** kernels,
 {
   int h, w, x, y, c, m;
 
+
+  //Vectorizing..
+
+
+
+
   for ( m = 0; m < nkernels; m++ ) {
     for ( w = 0; w < width; w++ ) {
       for ( h = 0; h < height; h++ ) {
@@ -271,15 +277,12 @@ void team_conv(int16_t *** image, int16_t **** kernels, float *** output,
 {
   int h, w, x, y, c, m;
   __m128d sum1, sum2, a, b1, b2, ab1, ab2;
-  #pragma omp parallel for private(w, h, m, c, x, y, sum1, sum2, a, b1, b2, ab1, ab2) shared(output, image, kernels) collapse(3) if (nkernels > 500)
+  #pragma omp parallel for if (nkernels > 500) private(w, h, m, c, x, y, sum1, sum2, a, b1, b2, ab1, ab2) shared(output, image, kernels) collapse(3)
 	for ( m = 0; m < nkernels; m+=2 ) {
-	  //#pragma omp parallel for if (width > 250)
 	  for ( w = 0; w < width; w++ ) {
-	    //#pragma omp parallel for if (height > 250)
 	    for ( h = 0; h < height; h++ ) {
 			  sum1 = _mm_set1_pd(0.0);
 			  sum2 = _mm_set1_pd(0.0);
-        #pragma omp parallel for collapse(3) if (nchannels > 500)
 		  	for ( c = 0; c < nchannels; c+=2 ) {
 			    for ( x = 0; x < kernel_order; x++) {
 				    for ( y = 0; y < kernel_order; y++) {
@@ -357,14 +360,7 @@ int main(int argc, char ** argv)
 
   //DEBUGGING(write_out(A, a_dim1, a_dim2));
 
-  /* use a simple multichannel convolution routine to produce control result */
-  gettimeofday(&start_time, NULL);
-  multichannel_conv(image, kernels, control_output, width,
-                    height, nchannels, nkernels, kernel_order);
-  gettimeofday(&stop_time, NULL);
-  mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
-    (stop_time.tv_usec - start_time.tv_usec);
-  printf("Slow conv time: %lld microseconds\n", mul_time);
+
 
 
   /* record starting time of team's code*/
@@ -379,6 +375,21 @@ int main(int argc, char ** argv)
   mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
     (stop_time.tv_usec - start_time.tv_usec);
   printf("Team conv time: %lld microseconds\n", mul_time);
+
+
+  /* use a simple multichannel convolution routine to produce control result */
+  gettimeofday(&start_time, NULL);
+  multichannel_conv(image, kernels, control_output, width,
+                    height, nchannels, nkernels, kernel_order);
+  gettimeofday(&stop_time, NULL);
+  mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
+    (stop_time.tv_usec - start_time.tv_usec);
+  printf("Slow conv time: %lld microseconds\n", mul_time);
+
+  //double temp_time = mul_time;
+
+  //double speed_up = temp_time / mul_time;
+  //printf("Speed up: %f \n", speed_up);
   //relative_speed = (double)control_time / (double)mul_time;
   //printf("Speed up: %lld", relative_speed);
 
