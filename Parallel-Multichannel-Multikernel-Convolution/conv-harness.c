@@ -6,9 +6,7 @@
    pixels of the image.
 
    Author: David Gregg
-   Date:   March 2019
-
-   Version 1.6 : Modified the code so that the input tensor is float
+   Date:   February 2019
 
    Version 1.5 : Modified the code so that the input and kernel
                  are tensors of 16-bit integer values
@@ -37,6 +35,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <x86intrin.h>
+#include <omp.h>
 
 /* the following two definitions of DEBUGGING control whether or not
    debugging information is written out. To put the program into
@@ -58,7 +57,7 @@ void write_out(int16_t *** a, int dim0, int dim1, int dim2)
         printf("%d, ", a[i][j][k]);
       }
       // print end of line
-      printf("%f\n", a[i][j][dim2-1]);
+      //printf("%f\n", a[i][j][dim2-1]);
     }
   }
 }
@@ -194,59 +193,6 @@ struct timeval seedtime;
   return result;
 }
 
-
-/* create a matrix and fill it with random numbers */
-float **** gen_random_4d_matrix_float(int dim0, int dim1, int dim2, int dim3)
-{
-float **** result;
-int i, j, k, l;
-struct timeval seedtime;
-  int seed;
-
-  result = new_empty_4d_matrix_float(dim0, dim1, dim2, dim3);
-
-  /* use the microsecond part of the current time as a pseudorandom seed */
-  gettimeofday(&seedtime, NULL);
-  seed = seedtime.tv_usec;
-  srandom(seed);
-
-  /* fill the matrix with random numbers */
-  const int range = 1 << 12; // 2^12
-  const int bias = 1 << 10; // 2^16
-  int16_t offset = 0.0;
-  for ( i = 0; i < dim0; i++ ) {
-    for ( j = 0; j < dim1; j++ ) {
-      for ( k = 0; k < dim2; k++ ) {
-        for ( l = 0; l < dim3; l++ ) {
-          // generate uniform random integer with mean of zero
-          long long rand = random();
-          // now cut down the range and bias the mean to reduce
-          // the likelihood of large floating point round-off errors
-          int reduced_range = (rand % range);
-          result[i][j][k][l] = reduced_range + bias;
-        }
-      }
-    }
-  }
-
-  return result;
-}
-
-
-/* create a matrix and fill it with random numbers */
-float *** gen_random_3d_matrix_float(int dim0, int dim1, int dim2)
-{
-  float **** mat4d;
-  float *** mat3d;
-
-  // create a 4d matrix with single first dimension
-  mat4d = gen_random_4d_matrix_float(1, dim0, dim1, dim2);
-  // now throw away out first dimension
-  mat3d = mat4d[0];
-  free(mat4d);
-  return mat3d;
-}
-
 /* create a matrix and fill it with random numbers */
 int16_t *** gen_random_3d_matrix_int16(int dim0, int dim1, int dim2)
 {
@@ -291,16 +237,24 @@ void check_result(float *** result, float *** control,
 }
 
 /* the slow but correct version of matmul written by David */
-void multichannel_conv(float *** image, int16_t **** kernels,
+void multichannel_conv(int16_t *** image, int16_t **** kernels,
 		       float *** output, int width, int height,
 		       int nchannels, int nkernels, int kernel_order)
 {
   int h, w, x, y, c, m;
 
+
+  //Vectorizing..
+
+
+
+
   for ( m = 0; m < nkernels; m++ ) {
     for ( w = 0; w < width; w++ ) {
       for ( h = 0; h < height; h++ ) {
         double sum = 0.0;
+
+
         for ( c = 0; c < nchannels; c++ ) {
           for ( x = 0; x < kernel_order; x++) {
             for ( y = 0; y < kernel_order; y++ ) {
@@ -308,6 +262,8 @@ void multichannel_conv(float *** image, int16_t **** kernels,
             }
           }
           output[m][w][h] = (float) sum;
+
+
         }
       }
     }
@@ -315,76 +271,58 @@ void multichannel_conv(float *** image, int16_t **** kernels,
 }
 
 /* the fast version of matmul written by the team */
-void team_conv(float *** image, int16_t **** kernels, float *** output,
+void team_conv(int16_t *** image, int16_t **** kernels, float *** output,
                int width, int height, int nchannels, int nkernels,
                int kernel_order)
 {
-
-  int p = 1;
-
-  int i, j, k, l;
-  int16_t **** newKernels = gen_random_4d_matrix_int16(nkernels, kernel_order, kernel_order,nchannels);
-  #pragma omp parallel for private(i, k, j, l) collapse(4)
-  for( i = 0; i < nkernels; i++)
-  {
-    for( j = 0; j < nchannels; j++)
-    {
-      for( k = 0; k < kernel_order; k++)
-      {
-        for( l = 0; l < kernel_order; l++ )
-        {
-          newKernels[i][k][l][j] = kernels[i][j][k][l];
-        }
-      }
-    }
-  }
-
   int h, w, x, y, c, m;
-  __m128 sum1, sum2, a, b1, b2, ab1, ab2;
+  __m128d sum1, sum2, a, b1, b2, ab1, ab2;
   #pragma omp parallel for if (nkernels > 500) private(w, h, m, c, x, y, sum1, sum2, a, b1, b2, ab1, ab2) shared(output, image, kernels) collapse(3)
 	for ( m = 0; m < nkernels; m+=2 ) {
 	  for ( w = 0; w < width; w++ ) {
 	    for ( h = 0; h < height; h++ ) {
-			  sum1 = _mm_set1_ps(0.0);
-			  sum2 = _mm_set1_ps(0.0);
-		  	for ( c = 0; c < nchannels; c+=4 ) {
+			  sum1 = _mm_set1_pd(0.0);
+			  sum2 = _mm_set1_pd(0.0);
+		  	for ( c = 0; c < nchannels; c+=2 ) {
 			    for ( x = 0; x < kernel_order; x++) {
 				    for ( y = 0; y < kernel_order; y++) {
-				      a = _mm_loadu_ps(&image[w+x][h+y][c]);
+				      a = _mm_setr_pd((double)image[w+x][h+y][c], 
+						                  (double)image[w+x][h+y][c+1]);
 
-	  			    b1 = _mm_loadu_ps(&newKernels[m][x][y][c]);
+	  			    b1 = _mm_setr_pd((double)kernels[m][c][x][y], 
+									             (double)kernels[m][c+1][x][y]);
               
-				      ab1 = _mm_mul_ps(a, b1);
-				      sum1 = _mm_add_ps(sum1, ab1);
+				      ab1 = _mm_mul_pd(a, b1);
+				      sum1 = _mm_add_pd(sum1, ab1);
 
-				      b2 = _mm_loadu_ps(&newKernels[m+1][x][y][c]);
-				      ab2 = _mm_mul_ps(a, b2);
-				      sum2 = _mm_add_ps(sum2, ab2);
+				      b2 = _mm_setr_pd((double)kernels[m+1][c][x][y], 
+					 				             (double)kernels[m+1][c+1][x][y]);
+				      ab2 = _mm_mul_pd(a, b2);
+				      sum2 = _mm_add_pd(sum2, ab2);
 				    }
 			    }
-			  }
+			  }	
+		    double temp[2] = {0.0, 0.0};
+		    _mm_store_pd(temp, sum1);
+		    double count = temp[0] + temp[1];
+		    output[m][w][h] = count;
 
-        float result[4] = {0.0, 0.0, 0.0, 0.0};
-        _mm_store_ps(result, sum1);
-        int res = ((int) result[0]) + ((int) result[1]) + ((int) result[2]) + ((int) result[3]);
-        output[m][w][h] = (float) res;
-
-        _mm_store_ps(result, sum2);
-        res = ((int) result[0]) + ((int) result[1]) + ((int) result[2]) + ((int) result[3]);
-        output[m+1][w][h] = (float) res;
+		    _mm_store_pd(temp, sum2);
+		    count = temp[0] + temp[1];
+		    output[m+1][w][h] = count;	
       }
 	  }
 	}
 }
 
+
 int main(int argc, char ** argv)
 {
   //float image[W][H][C];
-  //float kernels[M][C][K][K];
+  //float kernels[M][C][K][K];check_result
   //float output[M][W][H];
   
-  float *** image;
-  int16_t **** kernels;
+  int16_t *** image, **** kernels;
   float *** control_output, *** output;
   long long mul_time;
   int width, height, kernel_order, nchannels, nkernels;
@@ -414,17 +352,24 @@ int main(int argc, char ** argv)
   }
 
   /* allocate the matrices */
-  image = gen_random_3d_matrix_float(width+kernel_order, height + kernel_order,
+  image = gen_random_3d_matrix_int16(width+kernel_order, height + kernel_order,
                                nchannels);
   kernels = gen_random_4d_matrix_int16(nkernels, nchannels, kernel_order, kernel_order);
   output = new_empty_3d_matrix_float(nkernels, width, height);
   control_output = new_empty_3d_matrix_float(nkernels, width, height);
 
   //DEBUGGING(write_out(A, a_dim1, a_dim2));
-
+  
   /* use a simple multichannel convolution routine to produce control result */
-  multichannel_conv(image, kernels, control_output, width,
-                    height, nchannels, nkernels, kernel_order);
+  //gettimeofday(&start_time, NULL);
+  //multichannel_conv(image, kernels, control_output, width,
+  //                  height, nchannels, nkernels, kernel_order);
+  //gettimeofday(&stop_time, NULL);
+  //mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
+  //  (stop_time.tv_usec - start_time.tv_usec);
+  //printf("Slow conv time: %lld microseconds\n", mul_time);
+
+  //double temp_time = mul_time;
 
   /* record starting time of team's code*/
   gettimeofday(&start_time, NULL);
@@ -439,11 +384,13 @@ int main(int argc, char ** argv)
     (stop_time.tv_usec - start_time.tv_usec);
   printf("Team conv time: %lld microseconds\n", mul_time);
 
+  //double speed_up = temp_time / mul_time;
+  //printf("Speed up: %f \n", speed_up);;
+
   DEBUGGING(write_out(output, nkernels, width, height));
 
   /* now check that the team's multichannel convolution routine
      gives the same answer as the known working version */
   check_result(output, control_output, nkernels, width, height);
-
   return 0;
 }

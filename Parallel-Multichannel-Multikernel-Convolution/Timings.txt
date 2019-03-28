@@ -1,0 +1,33 @@
+INPUT: 256 256 3 1024 1024
+Time1: 43548598 Microseconds..(43.5 seconds)
+Time2: 43893582 Microseconds..(43.8 seconds)
+Time3: 44723115 Microseconds..(44.7 seconds)
+Time4: 44318992 Microseconds..(44.3 seconds)
+Time5: 48318946 Microseconds..(48.3 seconds)
+Average: 44.92 Seconds
+
+INPUT: 128 128 7 512 512
+Time1: 19883399 Microseconds.. (19.8 seconds)
+Time2: 15196441 Microseconds.. (15.1 seconds)
+Time3: 13498279 Microseconds.. (13.4 seconds)
+Time4: 13382286 Microseconds.. (13.3 seconds)
+Time5: 15443193 Microseconds.. (15.4 seconds)
+Average: 15.4 Seconds
+
+
+INPUT: 128 128 3 512 512 
+Time1: 3730051 Microseconds.. (3.7 seconds)
+Time2: 4297200 Microseconds.. (4.2 seconds)
+Time3: 4645153 Microseconds.. (4.6 seconds)
+Time4: 3614662 Microseconds.. (3.6 seconds)
+Time5: 3376072 Microseconds.. (3.3 seconds)
+Average: 3.88 Seconds
+
+INPUT: 16 16 1 32 32
+Time1: 2001 Microseconds..
+Time2: 1975 Microseconds..
+Time3: 2269 Microseconds..
+Time4: 1990 Microseconds..
+Time5: 2210 Microseconds..
+Average: 2089 Microseconds
+
