@@ -1,0 +1,65 @@
+QUESTION 1:
+
+(a)
+Dark silicon is a solution to the problem of heat dissipation and power consumption, but
+since we are changing how a CPU is designed, to handle a problem that will only increase with
+time, we also need to change the characteristics of that CPU - most notably how to effectively
+manage dark silicon to continue to improve computation according to Moore's Law.
+	
+Chip and system designers will be forced to adopt new asynchrounous circuits that help them
+address the power consumption issue. Dedicated co-processors, e.g. the Floating Point Unit
+(FPU), SIMD coprocessors, (ARMv8 even has instructions dedicated to AES encryption) have 
+been introduced to reduce the pressure on the overall circuitry. If complex jobs can be 
+delegated to specialized areas of computing it reduces the burden of power.
+
+The problems that arise with dark silicon primarily revolve around management. There will be 
+overhead introduced to manage these asynchronous circuits and different architectures will 
+outperform others. There is an optimal dark silicon solution, though that has to be discovered
+first.
+
+This is the trend that we've seen in response to the dark silicon. Future processors will 
+have more cores/other features, that will be specialized to compute a certain limited range 
+of tasks quickly, and using limited power. 
+
+i.e. The floating-point unit consumes very little power when you're not executing floating-
+point instructions; when you are, the FPU executes them a lot faster and more 
+power-efficiently.
+
+Overall the solution is to have dedicated asynchrounous coprocessors. For example, the GPU
+and other collections of coprocessor for image, video and sound processing. 
+
+ARMS big.LITTLE designs are a simple case of heterogenous multicore. They have a 'LITTLE'
+processor for maximum power efficiency and while the 'big' processors provide maximum
+compute performance. Both are coherent and share the same instruction set.
+
+(b)
+Compare and swap ensures atomicity by testing the variable we want to manipulate with an 
+expected value for that variable.
+
+In this example the variable that we want to manipulate is at the address pointed to by 
+'address', we load this value into oldVal and in one action compare it to an expected value,
+'testval'.
+
+If the value is what we expected it to be, then we have access to the correct data, and can 
+manipulate it accordingly. If the value is different then we expect that another thread must
+have manipulated it and we cannot securely operate on it. This is how the lock is implemented,
+if the data is not what we expect then the value is locked. We must then decide how to wait for it to be unlocked, whether the thread spins or dies. 
+
+The high level description shows the concept, but the key part is that this action happens
+atomically, that is to say as one indivisible block of code. This is provided at the machine
+instruction level. 
+
+However, in compare and swap, a value must be fetched, assessed and potentially changed 
+atomically. What prevent another core from accessing the memory address after the first has
+fetched it but before it sets the value?
+
+The cache coherency protocol already manages access rights for cache lines. So if a core has
+(temporal) exclusive access rights to a cache line, no other core can access that cache line.
+To access that cache line the other core has to obtain access rights first, and the protocol
+to obtain those rights involves the current owner. In effect, the cache coherency protocol 
+prevents other cores from accessing the cache line silently. 
+
+
+
+
+
