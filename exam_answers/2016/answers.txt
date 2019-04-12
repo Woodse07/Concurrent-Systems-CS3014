@@ -59,7 +59,49 @@ To access that cache line the other core has to obtain access rights first, and 
 to obtain those rights involves the current owner. In effect, the cache coherency protocol 
 prevents other cores from accessing the cache line silently. 
 
+(c)
+1.
+This code can be vectorized, the body of the for loop deals with a 1D array, or a vector,
+meaning it is very easy to vectorize. You could load each of the values into an SSE vector
+and use the specialized command for multiplication and addition to perform the operation.
 
+#include xmmintin.h
+void add_vect(float *a, float *b, float*c, float factor)
+{
+	__m128 vfactor = _mm_set1_ps(factor); // load 4 copies of factor.
+	for(i=0; i<1024; i+=4){
+		__m128 va = _mm_load_ps(&a[i]);
+		__m128 vb = _mm_load_ps(&b[i]);
+		__m128 vc = _mm_load_ps(&c[i]);
+		vx = _mm_mul_ps(vc, vfactor);
+		vy = _mm_add_ps(vb, vx);
+		_mm_store_ps(&a[i], vy);
+	}
+}
+
+2.
+This code is more difficult to vectorize because of the scalar sum value. However what we can 
+do is create 4 partial sums and then sum them horizontally at the end. 
+
+How can we do this if we don't know size is a multiple of 4?
+
+void add_Vect(float *restrict a, float *restrict b, int size)
+{
+	float sum;
+	__m128 vsum = _mm_set1_ps(0.0f);
+	//assert((n & 3) == 0);						// What do these do?
+	//assert(((uintptr_t)a & 15) == 0);
+	for(int i=0; i < n; i+=4) {
+		__m128 va = _mm_load_ps(&a[i]);
+		__m128 vb = _mm_load_ps(&b[i]);
+		__m128 vx = _mm_mul_ps(va, vb);
+		vsum = mm_add_ps(vsum,vx);
+	}
+	vsum = _mm_hadd_ps(vsum,vsum);
+	vsum = _mm_hadd_ps(vsum,vsum);
+	_mm_store_ss(&sum,vsum);
+	return sum;
+}
 
 
 
