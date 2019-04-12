@@ -85,23 +85,102 @@ do is create 4 partial sums and then sum them horizontally at the end.
 
 How can we do this if we don't know size is a multiple of 4?
 
-void add_Vect(float *restrict a, float *restrict b, int size)
-{
-	float sum;
-	__m128 vsum = _mm_set1_ps(0.0f);
-	//assert((n & 3) == 0);						// What do these do?
-	//assert(((uintptr_t)a & 15) == 0);
-	for(int i=0; i < n; i+=4) {
-		__m128 va = _mm_load_ps(&a[i]);
-		__m128 vb = _mm_load_ps(&b[i]);
-		__m128 vx = _mm_mul_ps(va, vb);
-		vsum = mm_add_ps(vsum,vx);
+	void add_Vect(float *restrict a, float *restrict b, int size)
+	{
+		float sum;
+		__m128 vsum = _mm_set1_ps(0.0f);
+		//assert((n & 3) == 0);						// What do these do?
+		//assert(((uintptr_t)a & 15) == 0);
+		for(int i=0; i < n; i+=4) {
+			__m128 va = _mm_load_ps(&a[i]);
+			__m128 vb = _mm_load_ps(&b[i]);
+			__m128 vx = _mm_mul_ps(va, vb);
+			vsum = mm_add_ps(vsum,vx);
+		}
+		vsum = _mm_hadd_ps(vsum,vsum);
+		vsum = _mm_hadd_ps(vsum,vsum);
+		_mm_store_ss(&sum,vsum);
+		return sum;
 	}
-	vsum = _mm_hadd_ps(vsum,vsum);
-	vsum = _mm_hadd_ps(vsum,vsum);
-	_mm_store_ss(&sum,vsum);
-	return sum;
-}
+
+
+
+QUESTION 2:
+(a)
+	void print_duplicates(char **strings, int num_strings) {
+		qsort(strings, num_strings, sizeof(char *), strcmp);
+		#pragma omp parallel for
+		for(int i = 0; i < num_strings; i++) {
+			if(strcmp(strings[i], strings[i-1]) == 0)
+				printf("%d\n", strings[i]);
+		}
+	}
+
+(b)
+Serial time complexity is O(nlogn).
+OMP multithreaded for loop.
+
+Parallelism is implemented using an OpenMP parallel for loop.
+
+
+
+QUESTION 3:
+(a)
+Potential parallelism in the for loop, however, by the end the threads must converge to give
+a single value for the sum. 
+
+(b)
+1. 
+Out of Order Superscalar:
+Also called Dynamic Instruction Scheduling, Out of Order Superscalars are processors that can
+begin execution of multiple instructions at once. A superscalar will typically have multiple
+processing units, (e.g. 2 ALUs) that can execute two instructions at once. In an OoO 
+architecture, if an instruction takes a large amount of cycles to execute, other instructions
+will be done before it, on condition that they are not dependent on the currently executing
+instruction, leading to out of order code execution. 
+
+The above code would see some improvement from an OoO superscalar architecture but that would
+mostly just coming from the superscalar aspect.
+
+2.
+Very long instruction word(VLIW):
+Static multiple-issue processors (aka VLIW) use the compiler to decide which instruction to 
+issue and execute simultaneously.
+
+Instructions are always fetched, decoded and issued in pairs. If one instruction of the pair 
+can not be used, it is replaced with a noop.
+
+What this means is that ALU operations and Memory Access operations can happen at the same
+time. In the case of the above code this means that loading or storing values for diff or
+sum will be done concurrently with other instructions. 
+
+We can imagine the code above in (pseudo) Assembly:
+	
+	LDR r2, &diff
+	MUL r3, r2, r2
+	STR r2, [&sum]
+
+Under VLIW some of these instruction could execute concurrently, otherwise they would execute
+as normal with noops.
+
+3.
+Vector Processor:
+In computing, a vector processor or array processor is a CPU that implements an instruction
+set containing instruction that operate as one-dimensional arrays of data called vectors, 
+compared to scalar processors, whose instructions operate on single data items. In order
+to be fully optimized by this type of processor the code would have to be vectorized. However
+a vector processor could speed up the operation of the line: 
+	'double diff = a[i]-mean'
+As this is a single operation on a set of data. This is exactly the type of thing a vector 
+processor is for; notably array manipulation.
+
+4.
+Simultaneous Multithreading:
+
+
+
+
+
 
 
 
