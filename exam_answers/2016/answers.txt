@@ -176,6 +176,76 @@ processor is for; notably array manipulation.
 
 4.
 Simultaneous Multithreading:
+In simultaneous multithreading, instructions from more than one thread can be executed in any
+given pipeline stage at a time. This is done without great changes to the basic processor 
+architecture: the main additions needed is the ability to fetch instructions from multiple
+threads in a cycle, and a larger register file to hold data from multiple threads. The number
+of concurrent threads can be decided by the chip designers. Two concurrent threads per CPU
+core are common, but some processors support up to eight concurrent threads per core.
+
+Simultaneous multithreading would have a positive impact on the above code. The ability to 
+execute more pipeline stages at once would simply increase efficiency. More instructions 
+could be executed in a given time interval. However assuming a large array, many of the
+instructions are sequential, such as the summation of diff*diff and rely on the answer from 
+previous instructions and so would see negligible gains from multithreading.
+
+5.
+Shared Memory Multicore Processor:
+A multi-core processor is a single computing component with two or more independent 
+processing units called cores, which read and execute program instructions. Often these 
+different cores can have different purposes/specializations. This naturally leads to speed
+up as multiple instructions are executed at the same time. Problems in this instance arise
+from the shared data aspect. When one core has access to a shared variable, the other core 
+cannot access it, and may enter spin or die. Shared data means that cache coherency is a
+barrier to real speed improvement. For example in the above code, if sum is being written
+to in the for loop then the value of it cannot be changed by another core.
+
+6.
+Multi Chip Symmetric Processor:
+Symmetric multiprocessing (SMP) involves a multiprocessor computer hardware and software
+architecture where two or more identical processors are connected to a single, shared 
+main memory, have full access to all input and output devices and are controlled by a single
+operating system instance that treats all processors equally, reserving none for special
+purposes.
+
+The above code would see improvement from this architecture as the Operating system manages the synchronization of different processors. Threads would be scheduled in order to induce
+speed-up. In the above code multiple instructions for calculating the standard deviation 
+would occur in parallel and then combined. The processors can communicate with each other
+via the bus, and the symmetric aspect means that we avoid data corruptions.
+
+7.
+NUMA Multi Processor:
+Non-uniform memory access (NUMA) is a memory access design where the memory access time
+depends on the memory location relative to the processor. Under NUMA, a processor can access
+its own local memory faster than non-local memory (memory local to another processory or
+memory shared between processors).
+
+The above function is high in data locality the same (or sequential) areads of memory are
+repeatedly accessed which means that if a NUMA architecture was used we would have some 
+speed up.
+
+8.
+Distributed Memory Multicomputer:
+In a distributed memory machine every core has access to its own, local, private version of
+memory. This can potentially introduce overhead as a memory coherence protocol must be 
+implemented, however this excludes race conditions. Distributed memory put the ? on the 
+programmer to think about data distribution, however is used properly it can be a secure 
+way to implement concurrent programs. While race conditions are eliminated, and data hazards
+are avoided, data distribution brings its own set of problems.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
