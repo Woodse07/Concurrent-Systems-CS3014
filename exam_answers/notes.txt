@@ -1,0 +1,588 @@
+CONCURRENT SYSTEMS SUMMARISED NOTES:
+
+- Why write parallel programs?
+	- Parallelism is tied to engery.
+	  A parallel computer with several processors is generally faster than one with 
+	  one super-fast processor.
+
+- Performance issue solutions?
+	- Use an efficient algorithm and data structure efficiently. 
+	- Locality, but almost invisible to the programmer.
+	- Parallelism with multiple threads and vector parallelism.
+
+- Typical Memory Hierarchy:
+	- Registers		(On datapath.........1 cycle)
+	- Level 1 Cache		(On chip.............2-4 cycles)
+	- Level 2 Cache		(On chip.............10 cycles)
+	- Level 3 Cache		(On chip.............40 cycles)
+	- Main memory		(Other chips.........200 cycles)
+	- Flash drive		(Other chips.........10-100ms)
+	- Hard disk		(Mechanical devices..10ms)
+
+- Locality:
+	- Either by time or by addresses close by.
+		- Temporal locality(time)
+		- Spatial locality(space)
+
+- Cache measured:
+	- Average_access_time = hit_time + miss_rate * miss_penalty(ms or clocks)
+
+- Cache Misses:
+	- Compulsory:
+		- Occurs the first time a piece of data is accessed.
+	- Capacity:
+		- The size of the cache is limited.. data must be removed.
+	- Conflict:
+		- Cache lines get swapped out even if the cache is not full.
+	- Coherency:
+		- Cache invalidation due to cache coherency protocol.
+
+- Reducing miss rate:
+	- Increase block size (Compulsory)
+	- Increase cache size (Capacity)
+	- Increase assosciativity (Conflict)
+
+- Reducing miss penalty:
+	- Multi-level caches.
+
+- Reducing hit time:
+	- Give reads priority over writes.
+
+- Program with locality in mind:
+	- Linked lists have terrible locality because each element can be anywhere in memory.
+	  Replace with arrays because arrays are contiguous.
+	- Making data structures more compact will reduce cache misses.
+
+- Types of efficiency:
+	- Running time: CPU/ Hard disk access time/ Network
+	- Memory: RAM/ ROM/ Disk/ External Storage.
+
+- Costs of inefficiency:
+	- Lost user time/ other processes.
+	- Unusability for real-time processing.
+	- More expensive hardware.
+
+- Effiency required:
+	- User command response: 300ms
+	- Music: 20ms
+	- Animated Software: 12ms
+	- Improve efficiency until other components dominate.
+	- Often commercial trade offs have to be made.
+
+- Goals:
+	- Correctness, Clarity, Simplicity.
+
+- Why can't my compiler do this?
+	- Compiler does optimise but..
+		- Stays withing the semantics of program.
+		- Avoid potential pessimisations.
+		- Attempts transformations that can be identified quickly and with 
+		  limited memory. 
+		- Only includes optimisations used reasonably often.
+		- May be dependencies between optimisations.
+
+- Compiler Stumbling Blocks:
+	- Aliasing
+	- Side effects/exceptions
+	- Loops that execute zero times.
+
+- Algorithms & Data-structures:
+	- Goals are simplicity, efficiency and flexibility.
+	- Problems are abstraction and abstract data types.
+
+- Language isses:
+	- Pointer Aliasing.................(C vs Fortran)
+	- Nested Objects...................(Java vs C)
+	- Scaling in pointer arithmetic....(C vs Forth)
+	- Null terminated strings in C.
+	- "C++ is slow" (Or Java or Python)
+
+- Code motion:
+	- Computation must have no side effects or depend on anything computed inside the loop.
+	  (Basically do computation outside of the loop..)
+
+- Parallelism:
+	- Between several CPUs 		= Multithreading.
+	- Between CPU and Disk 		= Prefetching, Write buffering.
+	- Between CPU and Graphic Card 	= Triple buffering. 
+	- Between CPU and Memory 	= Prefetching.
+	- Between Machine instrctions 	= Instruction scheduling.
+	- SIMD.
+
+- Eliminate Duplicates:
+	- a = Exp, b = Exp => a = Exp, b = a.
+       	  As long as Exp has no side effects.
+
+- Parallelism in a nutshell.
+	- Compile time initialisation..(instead of runtime).
+	- Eliminate subexpressions by quoting other variables.
+	- Pairing computation..(Division + Remainder).
+	- Data Structure Augmentation..(Danger of inconsistent Data Structures).
+	- Lazy Evalutation..(Finite state automation for regex).
+	- Packing..(Data compression/code size/cache behaviour).
+	- Interpreters/factoring..(similar code sections to functions).
+	- Compiler flags..(gcc provides a lot).
+
+- Faster C code:
+	- If function only used in one file, declare it 'static'.
+	- Function inlined use 'inline' declaration. 
+	- Pointer aliasing, use 'restrict' dpointers.
+	- Use 'register' declaration on a variable to ensure it's not made unavailable
+	  for register allocation.
+	- Copy value into a local variable if used repeatedly within a loop, becomes eligible
+	  for register allocation.
+
+- Computer Instruction Cycle:
+
+			Fetch_Cycle<------------Execution_Cycle
+	  		     ^				^
+	  		     |				|
+	  Start ---> Fetch_Next_Instruction ---> Execute_Instruction ---> HALT
+
+
+				     ALU
+				      ^
+				      |
+				      v
+	  Instruction_Memory<--->Control_Unit<--->Data_Memory  
+				      ^
+				      |
+				      v
+				     I/O
+
+-Flynn's Taxonomy:
+	- How many instructions Vs How much Data
+	  can be processed simultaneously?
+	- Classifies computer architectures into four types:
+		- SISD
+		- SIMD
+		- MISD
+		- MIMD
+	- Quite difficult to fit parallel architectures.	
+	- Old (1966).
+	- Where do these fit?
+		- ILP (Instruction-Level Parallelism).
+		- Fine-Grain Speculative Multithreading.
+	Most important distinction is between SIMD and MIMD.
+
+- Single Instruction Single Data (SISD):
+	- Exploits no parallelism, either on the instruction or data level.
+	- Example: Uniprocessory machines.
+	- **DIAGRAM IN COPY**
+
+- Single Instruction Multiple Data (SIMD):
+	- Same instruction runs on all processors.
+	- Data-level parallelism, not concurrency.
+	- Applications:
+		- Image editing.
+		- Multimedia processing.
+	- Example: Vector computers, GPUs.
+	- **DIAGRAM IN COPY**
+
+- Multiple Instruction Single Data (MISD):
+	- Different instructions run on the same data.
+	- Pipelining.
+	- Applications:
+		- Convolution.
+		- Matrix operations.
+		- Data sorting.
+	- Example: Uncommon in architecture in reality..
+	- **DIAGRAM IN COPY**
+
+- Multiple Instruction Multiple Data (MIMD):
+	- Different instructions run on different data.
+	- Processing: Asynch, independent.
+	- Memory: Shared or distributed.
+	- Applications:
+		- Simultation.
+		- Emulation(VM).
+		- CAD / CAM.
+		- Modelling.
+	- Example: Multi-core superscalar processors:
+	- **DIAGRAM IN COPY**
+ 
+- Von-Neumann Architecture:
+	- **DIAGRAM IN COPY**
+
+- More MIMD (Important distinctions):
+	- SPMD (Single Program Multiple Data):
+		- Program executed at independent execution points.
+		- Most common style of parallel programming.
+	- MPMD (Multiple Program Multiple Data):
+		- At least 2 programs.
+		- One program is a master/controller.
+		- Other nodes receive program from master.
+
+- Uniform Memory Access (UMA)
+	-
+		CPU	CPU	CPU	CPU
+		 \       |       |       /
+		 System_Bus/Crossbar_Switch------I/O
+			     |
+			   Memory
+
+- Non-Uniform Memory Access (NUMA):
+	- **DIAGRAM IN COPY**
+
+- Memory Access:
+		UMA		NUMA
+Latancy:	Same		Different
+Bandwidth:	Same		Different
+Memory:		Shared		Distributed
+
+- Symmetric Vs Asymmetric (Multiprocessing):
+	- Symmetric Multiprocessing(SMP):
+		- 2+ identical processors connected to single shared memory (UMA).
+		- Most multiprocessors use SMP.
+		- For OS, all processors are treated the same.
+		- Tightly coupled, connected at bus level.
+	- Asymmetric Multiprocessing(ASMP) 
+		- Processors aren't treated the same.
+		- ASMP is expensive, hence rarer.
+
+- Multicore Processors: 
+	- May or may not share a cache.
+	- May implement message passing or IPC (Interprocess communication).
+	- Cores can be connected in:
+		- Bus.
+		- Ring.
+		- 2D Mesh.
+		- Crossbar.
+	- Can be homogenous(identical cores) or heterogenous(non-identical cores).
+
+- ARM Heterogenous Multicore Architectures:
+	- big.LITTLE:
+		- Finer-grained control of workloads.
+			- powerful(big). 
+			- weak(LITTLE).
+		- Implementations in the schedule:
+			- Clustered Switching.
+			- In-Kernel Switcher (CPU migration)
+			- Heterogenous Multi-Processing (global task scheduling)
+		- Easily support non-symmetrical SoCs.
+		- Uses all cores simultaneously to imrpove/provide peak performance.
+	- DynamIQ:
+		- Combines big and LITTLE cores into one single, fully integrated cluster.
+		- Better power and memory efficiency.
+		- Various configs (e.g.) 1 big + 7 LITTLE CPUs.
+		- Great for AI and machine learning processing.
+
+- Instruction Level Parallelism (ILP):
+
+	- Instruction Pipelining:
+		- Occurs withing a single processor.
+		- Keep every part of a processor busy by dividing instructions in parallel:
+			- Fetch
+			- Decode
+			- Execute
+			- Write-back
+
+	- Pipeline Branching:
+		- If a branch is *not* taken, resources are wasted.
+		  This cases a dely in execution.
+		- Branch Prediction:
+			- Algorithm to predict what branch might be taken.
+			- Very complex to execute accurately.
+
+	- Intel Branch Prediction Patent:
+		- **DIAGRAM IN COPY**
+
+- Supercalar Architectures:
+	- Scalar:
+		- Each instruction manipulates 1-2 data items at one time.
+	- Superscalar
+		- Executes more than one instruction at one time.
+		- Multiple simultaneous instructions to different execution units
+		  = more throughput per cyle.
+	- Flynn's Taxonomy:
+		- SISD for single core(SIMD for vector operations)
+		- MIMD for multiple cores.
+
+- Multithreading:
+	- Performance beyond single thread ILP:
+		- Can be much higher natural parallelism in certain applications
+		  (e.g.) Databases or scientific codes.
+
+	- Thread or Data level Parallelism:
+		- Thread is a process with its own instructions and data where is may be a 
+	  	  subpart of a program(thread) or an indpendent program(process).
+		- Each thread has all the state(instructions, data,..) necessary to allow
+		  it to excute.
+		- Data level parallelism perform identical operations on data, and lots of data.
+
+	- Continuum of Granularity:
+		- Coarse:
+			- Each processor is more powerful.
+			- Usually fewer processors.
+			- Communication is more expensive between processors.
+			- Processors are more loosely-coupled.
+			- Tend toward MIMD.
+		- Fine:
+			- Each processor is less powerful.
+			- Usually more processors.
+			- Communication is cheaper between processors.
+			- Processors are more tightly-coupled.
+			- Tend toward SIMD.
+
+	- Thread-Level Parallelism (TLP)
+		- More cost-effective to implement as have to rewrite code compare to 
+		  Instruction-Level Parallelism.
+
+	- Conventional Multithreading:
+		- How does a multiprocessors run multiple process/threads at the same time?
+		- How does a program interact with another?
+		- What is pre-emptive multitasking vs cooperative multitasking.
+
+	- New Multithreading approach:
+		- Multithreading:
+		  Multiple threads to share the functional units of 1 processor
+		  via overlapping. 
+		- Processor must duplicate independent state of each thread.
+		  (e.g.) A seperate copy of a register file, a seperate PC..
+		- Memory is shared through the virtual memory mechanism, which already support
+		  multiple processes.
+		- Hardware for fast thread switch is much faster than full process switches.
+
+	- Executing Multithreading:
+		- When to switch between threads?
+			- Fine grain: Alternate instructions per thread.
+			- Course grain: When a thread is stalled, another can be executed.
+
+	- Fine-Grained Multithreading:
+		- Switches threads on each instruction, causing multiple instruction 
+		  executions to be interleaved.
+		- Usually in a round-robin, skipping stalled threads.
+		- CPU must be able to switch threads every clock cycle.
+		- Advantage:
+			- Can hide both short and long stalls, since instructions from other 	
+			  threads are executed when one thread stalls.
+		- Disadvantage: 
+			- Slows down the execution of individual threads, since a thread 
+			  ready to execute without stalls will be delayed by instructions
+			  from other threads.
+	
+	- Coarse-Grained Multithreading:
+		- Switches threads only on costly stalls, such as L2 cache misses.
+		- Advantages:
+			- Relieves the need to have fast thread switching.
+			- Doesn't slow down the thread, since instructions from other threads
+			  are only issued when the thread encounters a costly stall.
+		- Disadvantages:
+			- Hard to overcome throughput losses from shorter stalls due to 
+			  pipeline startup costs.
+				- When a stall occurs, the pipeline must be emptied/frozen.
+				- New thread must fill the pipeling before instructions can
+				  complete.
+		- Because of the startup overhead, coards-grained multithreading is better
+		  for reducing the penalty of high-cost stalls where:
+		  pipeline refill time < stall time. 
+
+- Intel SSE:
+	- Programming in SSE:
+		- We use intrinsics as the computer generally has special functions that have
+		  a specific optimisation path.
+		- They generally encode to a specific small list of sequential instructions.
+		- Speed goes up.
+		- Ease of use goes down.
+		- Intrinsics are a good middle ground, with modern optimising compilers, we
+		  get results as good as the best hand tuned ASM.
+		- Code readability not compromised compared to Assembly language.
+		- Register management handled by compiler.
+		- Don't forget to #include xmminstrins.h
+
+	- Instrinsic Types:
+		- __m128  = 4 32-bit single precision floats.
+		- __m128i = 4 32-bit single precision ints. 
+		- __m128d = 4 64-bit double precision floats.
+
+	- Load Instructions:
+		- Load 4 floats from a 16B alligned address:
+			- __m128 _mm_load_ps(float *src);
+		- Load 4 floats from an unalligned address(4x slower):
+			- __m128 _mm_loadu_ps(float *src);
+		- Load 1 float into all 4 fields:
+			- __m128 _mm_load1_ps(float *src);
+		- Load 4 floats from parameters:
+			- __m128 _mm_setr_ps(float a, float b, float c, float d);
+		- Load 1 float from paramter into all 4 fiels:
+			- __m128 _mm_set1_ps(float a);
+
+	- Store Instructions:
+		- Store 4 floats to an alligned address:
+			- _mm_store_ps(float *dest, __m128 src);
+		- Store 4 floats to an unalligned address:
+			- _mm_storeu_ps(float *dest, __m128 src);
+
+	- Aligned stores/loads must operate on a 16B alligned address.
+	  Otherwise a segfault will occur.
+	
+	- If you must use an unalligned address, use the unalligned intrinsics.
+	  These are much slower than alligned.
+
+	- Arithmetic Instructions:	
+		- Addition of two floats:
+			- _mm_add_ps(__m128 a, __m128 b);
+		- Subtraction of two floats:
+			- _mm_sub_ps(__m128 a, __m128 b);
+		- Multiplication of two floats:
+			- _mm_mult_ps(__m128 a, __m128 b);
+		- Division of two floats:
+			- _mm_div_ps(__m128 a, __m128 b);
+		- Min of two floats:
+			- _mm_min_ps(__m128 a, __m128 b);
+		- Max of two floats:
+			- _mm_max_ps(__m128 a, __m128 b);
+
+	- Other Instructions:
+		- Square root of four floats:
+			- _mm_sqrt_ps(__m128 a);
+		- Rough (12-bit) reciprocal of four floats:
+			- _mm_rcp_ps(__m128 a);
+		- Rough square root of four floats:
+			- _mm_rsqrt_ps(__m128 a);
+	
+	- How to speed up?
+		- Instead of dividing many times by the same variable throughout the code,
+		  find the reciprocal and change the DIVS to MULS.
+		- Care must be taken when getting the reciprocal of large numbers as SSE
+		  instructions have reduced accuracy. (Newto Rhapson method for fix).
+
+	- Example:
+	  Original C SISD Code:
+	
+		#define SIZE 4096
+		float vals [SIZE];
+		float a,b;
+		int main() {
+			load_vals();
+			for(int i=0; i < SIZE; i++) {
+				vals[i] = vals[i]*a + b;
+			}
+			return 0;	
+		}
+
+	  New C SIMD Code:
+		
+		#include <xmmintrin.h>
+		#define SIZE 4096
+		float vals [SIZE];
+		float a,b;
+		int main() {
+			load_vals();
+			__m128 va = _mm_set1_ps(a);	// Contains 4 copies of a.
+			__m128 vb = _mm_set1_ps(b);	// Contains 4 copies of b.
+			for(int i=0; i < SIZE; i+=4) {  // Size must be a multiple of 4.
+				__m128 v = _mm_load_ps(&vals[i]); // Careful of allignment.
+				v = _mm_mult_ps(v, va);
+				v = _mm_add_ps(v, vb);
+				_mm_store_ps(&vals[i], v);
+			}
+			return 0;
+		}
+
+	- Newton-Rhapson Reciprocal (NR):
+		- One iteration is enough to increase accuracy.
+		  Still faster than a divide.
+		
+		- rcp_nr(x) = 2 * (1/x) - ((1/x) * (x * (1/x)))
+
+	- SSE NR Reciprocal:
+		__m128 rcp_nr(const __m128 &a) {
+			const __m128 r = _mm_rcp_ps(a);
+			return _mm_sub_ps(
+					_mm_add_ps(r,r),
+					_mm_mul_ps(
+						_mm_mul_ps(r,a),
+						r)
+					);
+		}
+
+	- NR Reciprocal SQRT:
+		- (1/2) * rsqrtps(x) * (3 - x * rsqrtps(x) * rsqrtps(x))
+
+		__m128 rqrt_nr(const __m128 &a) {
+			const __m128 half = _mm_set1_ps(0.5f);
+			const __m128 three = _mm_set1_ps(3.0f);
+			const __m128 r = _mm_rsqrt_ps(a);
+			return _mm_mul_ps(
+					_mm_mul_ps(half, r),
+					_mm_sub_ps(three,
+						_mm_mul_ps(a, 
+							_mm_add_ps(r, r)
+							)
+						)
+					)
+		}
+		
+	- Operating on Bits:
+		- ANDs two vectors:
+			- _mm_and_ps(__m128 a, __m128 b)
+		- ORRs two vectors:
+			- _mm_or_ps(__m128 a, __m128 b)
+		- NANDs two vectors:
+			- _mm_andnot_ps(__m128 a, __m128 b)
+		- XORs two vectors:
+			- _mm_xor_ps(__m128 a, __m128 b)
+
+	- Comparisons:
+		- a == b:
+			- _mm_cmpeq_ps(__m128 a, __m128 b);
+		- a < b:
+			- _mm_cmplt_ps(__m128 a, __m128 b); 	
+		- a <= b:
+			- _mm_cmple_ps(__m128 a, __m128 b);
+		- a > b:
+			- _mm_cmpgt_ps(__m128 a, __m128 b);
+		- a >= b:
+			- _mm_cmpge_ps(__m128 a, __m128 b);
+		- a != b:
+			- _mm_cmpneq_ps(__m128 a, __m128 b);
+
+	- comparison instructions return a bitmask indicating which of the consituent parts of
+	  the register passed failed:
+		- 0000: all false
+		- 0101: false for first and third, true for 2nd and fourth
+		- 1111: all true
+	  _mm_movemask_ps() converts __m128 mask into a 4-bit integer.
+
+
+	- Usage of mask:
+		__m128 a = _mm_set1_ps(0.0f);
+		__m128 b = _mm_set1_ps(1.0f);
+		__m128 r = _mm_cmpgt_ps(a,b);
+		int mask = _mm_movemask_ps(r);
+		if(mask == 0xF)
+			printf("All values in 'a' are greater than 'b'.\n");
+		else if(mask == 0)
+			printf("No values in 'a' are greater than 'b'.\n");
+		else
+			printf("Some values in 'a' are greater than 'b'.\n");
+
+	- Possible solutions to harness power/efficiency:
+		
+		float total1, total2, total3, total4;
+		float *data1, *data2, *data3, *data4;
+		for(i=0; i<SIZE; i++){
+			total1 += data1[i];
+			total2 += data2[i];
+			total3 += data3[i];
+			total4 += data4[i];
+		}
+
+		Becomes.....
+
+		__m128 totals;
+		float *data1, *data2, *data3, *data4;
+		for(i=0; i<SIZE; i++){
+			_mm128 v = _mm_setr_ps(data1[i], data2[i], data3[i], data4[i]);
+			totals = _mm_add_ps(totals, v);
+		}
+
+		Could also reorder data...
+	
+		__m128 totals;
+		float *data;
+		for(i=0; i<SIZE; i+=4){
+			__m128 v = _mm_load_ps(&data[i])
+			totals = _mm_add_ps(totals,v);
+		}
