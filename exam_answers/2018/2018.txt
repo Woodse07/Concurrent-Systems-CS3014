@@ -1,0 +1,225 @@
+QUESTION 1:
+(a)
+Compare-and-Swap(CAS) is an atomic instruction used in multithreading to achieve synchronisation.
+It compares the contents of a memory location to a new given value, and only if they're the same,
+modifies the contents of that memory location to a new given value.
+This is done as a single atomic operation.
+Most multiprocessor architectures suppoer CAS, and the compare-and-swap operation is the most
+popular synchronisation primitive for implementing both lock-based and non-blocking concurrent 
+data structures.
+Explain how this can be used to create a lock between threads.
+Example C code given in the Intel Software Manual demonstrates CAS as follows:
+
+	bool compare_and_swap(int *accum, int *dest, int newval) {
+		if (*accum == *dest) {
+			*dest = newval;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+Answer:
+	- In this example the variable that we want to manipulate is at the address pointed to by
+	  dest, we compare it to an expected value, accum.
+
+	- If the value is what we expect it to be, then we have access to the correct data, and 
+	  can manipulate it accordingly. If the value is different, then another thread must
+ 	  have manipulated it and we cannot securely operate on it. This is how the lock is 
+	  implemented, if the data is not what we expect then the value is locked. We must then 
+	  decide how to wait for it to be unlocked, wether the thread spins or dies.
+
+	- The high level description shows the concept, but the key part is that this action 
+	  happens atomically, that is to say as one indivisble block of code. This is provided
+	  at the machine instruction level.
+
+	- However, in compare and swap, a value must be fetched, assesed and potentially changed
+	  atomically. What prevents another core from accessing the memory address after the first
+	  has fetched it but before it sets a new value?
+	
+	- The cache coherency protocol already manages access rights for cache lines. So if a
+	  core has (temporal) exclusive access rights to a cache line, no other core can access
+	  that cache line. To access that cache line the other core has to obtain access rights
+	  first, and the protocol to obtain those rights involves the current owner. In effect, 
+	  the cache coherency protocol prevents other cores from accessing the cache line silently.
+
+
+(b)
+Examine and state wheteher each of the following code blocks can be parallelised effectively
+using SSE (x86). If not, clearly state why. If the code can be vectorised, use SSE intrinsics
+to vectorise it. Write a short note about the parallelisation strategy you used.
+
+//Code Segment #1
+void compute(int *array, int SIZE) {
+	// array is 16-byte unaligned address.
+	int i=1;
+	while(i < SIZE) {
+		array[i] = array[i] + array[i-1];
+		i = i+1
+	}
+}
+
+Answer #1:
+	void compute(int *array, int SIZE) {
+		int remainder = SIZE % 4;
+		if(remainder != 0)
+			int tmpSize = SIZE - remainder;
+		for(int i=1; i<tmpSize; i+=4){
+			__m128 tmp1 = _mm_loadu_ps(&array[i]);
+			__m128 tmp2 = _mm_loadu_ps(&array[i-1]);
+			__m128 tmp3 = _mm_add_ps(tmp1, tmp2);
+			_mm_storeu_ps(&array[i], tmp3);
+		}
+		for(int i=tmpSize; i<SIZE; i++){
+			array[i] = array[i] + array[i-1];
+		}
+	}
+
+	Notes: I think this is okay.. we deal with that fact that we don't know if SIZE is a 
+	       multiple of 4, although there may be an off by 1 error. I think there might be 
+	       a smarter way of doing this using the _mm_hadd_function, should come back to this.
+
+
+//Code Segment #2
+void compute(float *array, int SIZE, float multiplier) {
+	for(int i=SIZE-1; i >= 0; i--){
+		array[i] = (array[i] * multiplier) / SIZE;
+	}
+}
+
+Answer #2:
+	void compute(float *array, int SIZE, float multiplier) {
+		int remainder = SIZE % 4;
+                if(remainder != 0)
+                        int tmpSize = SIZE - remainder;
+		float newMultiplier = multiplier / SIZE;
+		__m128 multipliers = _mm_set1_ps(newMultiplier);
+		for(int i=0; i < tmpSize; i+=4){
+			__m128 v = _mm_loadu_ps(&array[i]);	//Assuming still unalligned
+			__m128 result = _mm_mul_ps(v, multipliers);
+			_mm_storeu_ps(&array[i], result);
+		}
+		for(int i=tmpSize; i < SIZE; i++){
+			array[i] = array[i] * newMultiplier;
+		}
+	}
+
+	Notes: I think this is good, we deal with not knowing what SIZE is, we take all of the 
+	       unessescary computation out of the for loops, and vectorise it. 
+
+
+//Code Segment #3
+int compute(int *array, int SIZE) {
+	// array is 16-byte aligned address
+	int max=0;
+	for(int i =0; i<SIZE; i++) {
+		if (array[i] > max) {
+			max = array[i];
+		}
+	}
+	return max;
+}
+
+Answer #3:
+	int compute(int *array, int SIZE) {
+                int remainder = SIZE % 4;
+                if(remainder != 0)
+                        int tmpSize = SIZE - remainder;
+		__m128 max = _mm_set1_ps(0.0f);
+		for(int i=0; i<tmpSize; i+=4){
+			__m128 tmp = _mm_load_ps(&array[i]);
+			max = _mm_max_ps(tmp, max);
+		}
+		max = _mm_max_ps(max, _mm_shuffle_ps(max, _MM_SHUFFLE(0,0,3,2)));
+		max = _mm_max_ps(max, _mm_shuffle_ps(max, _MM_SHUFFLE(0,0,0,1)));
+		const int ndx = 0;
+		int newMax = _mm_extract_ps(max,0);
+		for(int i=tmpSize; i<SIZE; i++){
+			if(array[i] > newMax){
+				newMax = array[i];
+			}
+		}
+	return newMax;
+	} 
+
+	Notes: I think this is alright but could probably be improved. 4 times faster since 
+	       the address is alligned. Keeping a running max of 4 floats every loop and then 
+	       a bit of hacky code to extract the max out of the final __m128.. not sure if 
+	       this is good practice. Again, handles SIZE since we don't know if it's a multiple
+	       of 4.
+
+
+//Code Segment #4
+bool strcmp(char *string1, char *string2, int strlength) {
+	for(int i=0; i<strlength; i++){
+		if(string1[i] != string2[i]){
+			return false;
+		}
+	}
+	return true;
+}
+
+Answer #4:
+	bool strcmp(char *string1, char *string2, int strlength) {
+                int remainder = strlength % 4;
+                if(remainder != 0)
+                        int tmpLen = strlength - remainder;
+		for(int i=0; i<tmpLen; i+=4){		
+			__m128i tmp1 = _mm_setr_epi32((int)string1[i],
+						      (int)string1[i+1],
+						      (int)string1[i+2],
+   						      (int)string1[i+3]);
+			__m128i tmp1 = _mm_setr_epi32((int)string2[i],
+						      (int)string2[i+1], 		
+						      (int)string2[i+2],	
+   						      (int)string2[i+3]);
+			__m128i result = _mm_cmpeq_epi32(tmp1, tmp2);
+			int mask = _mm_movemask_epi32(result);
+			if(mask != 0xFF)
+				return false;
+		}
+		return true;
+	}
+
+	Notes: I'm not sure if this is effective or not, since there is no actual SSE data 
+	       type for chars, we'd need to convert them to ascii(ints), and to do that, we 
+	       still need to access the arrays. 
+
+
+
+QUESTION 2:
+A function called max_matrix finds the position of the maximum element from a three dimensional
+matrix of floats. 
+It returns the position of the maximum element in the form of three coordinates desigated 
+as x, y, z.
+
+(a)
+Write a C program using OpenMP to parallelise operations for faster execution.
+Your code is expected to store the position of the maximum in an integer array of size 3.
+
+Answer:
+
+	#include <omp.h>
+	
+	int *max_matrix(float ***Matrix, int XLen, int YLen, int ZLen) {
+		int max = 0;		// Assuming values are positive..
+		int *maxPos = malloc(3)
+		# pragma omp parallel for collapse(3)
+		for(int x=0; x<XLen; x++){
+			for(int y=0; y<YLen; y++){
+				for(int z=0; z<ZLen; z++){
+					if(Matrix[x][y][z] > max) {
+						max = Matrix[x][y][z];
+						maxPos[0] = x;
+						maxPos[1] = y;
+						maxPos[2] = z;
+					}
+				}
+			}
+		}
+	return maxPos;
+	}
+
+(b)
+The speed is increased by the OMP multithreaded for loop. We are able to collapse all three 
+for loops since they're all perfectly nested.
