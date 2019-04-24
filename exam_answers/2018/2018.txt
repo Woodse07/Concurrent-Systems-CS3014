@@ -75,9 +75,8 @@ Answer #1:
 		}
 	}
 
-	Notes: I think this is okay.. we deal with that fact that we don't know if SIZE is a 
-	       multiple of 4, although there may be an off by 1 error. I think there might be 
-	       a smarter way of doing this using the _mm_hadd_function, should come back to this.
+	Notes: This is wrong.. cannot be vectorised since the sum is dependent on the previous
+	       iteration of the loop. 
 
 
 //Code Segment #2
@@ -175,7 +174,7 @@ Answer #4:
    						      (int)string2[i+3]);
 			__m128i result = _mm_cmpeq_epi32(tmp1, tmp2);
 			int mask = _mm_movemask_epi32(result);
-			if(mask != 0xFF)
+			if(mask != 0xF)
 				return false;
 		}
 		return true;
